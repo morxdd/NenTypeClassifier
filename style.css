@@ -2,3 +2,36 @@
     padding: 0;
     margin: 0;
 }
+
+.questions-container {
+    margin: 20px;
+    padding: 20px;
+}
+
+.option {
+    margin: 10px 0;
+}
+
+.questions-button-group {
+    margin-top: 20px;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.main-container {
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.questions-container {
+    height: 100%;
+}
+
+.questions-button-group {
+    display: flex;
+    justify-content: center;
+}
