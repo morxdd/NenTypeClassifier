@@ -19,12 +19,12 @@ const questions = [
     },
     {
         id: 2,
-        text: "承上題，之後你會怎麼做？ Q1回答「帶回家」的選上三個選項裡的，回答「不帶回家」的下三個選項中的）",
+        text: `承上題，之後你會怎麼做？\nQ1回答「帶回家」的選上三個選項裡的，\n回答「不帶回家」的下三個選項中的）`,
         type: "single", // 題目類型:"single"(單選)/"multiple"(多選)/"boolean"(是非)
         options: [
             {
                 id: "A",
-                text: "管怎樣都一定要養！"
+                text: "不管怎樣都一定要養！"
             },
             {
                 id: "B",
@@ -292,7 +292,7 @@ const questions = [
             { id: "E", text: "對自己要求嚴格" },
             { id: "F", text: "有行動力" },
             { id: "G", text: "朋友多" },
-            { id: "H", text: "反复無常難以捉摸" },
+            { id: "H", text: "反覆無常難以捉摸" },
             { id: "I", text: "畫畫唱歌很好" },
             { id: "J", text: "利己主義" },
             { id: "K", text: "擅長精細活" },
@@ -424,33 +424,29 @@ function initializeQuiz() {
 }
 // 開始測驗
 function quizStart() {
-    // 1. 處理說明區域
     const instructionsElement = document.querySelector('.quiz-instructions');
     if (instructionsElement) {
         instructionsElement.remove();
     }
 
-    // 2. 處理按鈕組並設置事件監聽
     const buttonGroup = document.querySelector('.questions-button-group');
     if (buttonGroup) {
         buttonGroup.innerHTML = `
             <button id="previous" disabled>上一題</button>
-            <button id="next">下一題</button>
+            <button id="next" disabled>下一題</button>
         `;
-        
-        // 綁定導航按鈕事件 (只綁定一次)
+
         const previousButton = document.querySelector('#previous');
         const nextButton = document.querySelector('#next');
-        
+
         if (previousButton) {
             previousButton.addEventListener('click', previousQuestion);
         }
-        
+
         if (nextButton) {
             nextButton.addEventListener('click', () => {
-                saveCurrentAnswer();
                 if (currentQuestionIndex === questions.length - 1) {
-                    finishQuiz();
+                    showResult();
                 } else {
                     nextQuestion();
                 }
@@ -458,7 +454,6 @@ function quizStart() {
         }
     }
 
-    // 3. 顯示第一題
     showQuestion();
     updateNavigationButtons();
 }
@@ -469,20 +464,25 @@ function showQuestion() {
     const currentQuestion = questions[currentQuestionIndex];
 
     clearCurrentQuestion();
-    
+
     const questionsContainer = createQuestionContainer(currentQuestion);
     container.appendChild(questionsContainer);
-    
+
     loadSavedAnswer();
-    
-    // 只設置選項的事件監聽
+
+    // 綁定選項事件
     const options = document.querySelectorAll('input[type="radio"], input[type="checkbox"]');
     options.forEach(option => {
         option.addEventListener('change', () => {
             saveCurrentAnswer();
+            updateNextButtonState();
         });
     });
+
+    // 初始化下一題按鈕狀態
+    updateNextButtonState();
 }
+
 
 // 創建題目容器
 function createQuestionContainer(question) {
@@ -547,14 +547,6 @@ function setupEventListeners() {
             }
         });
     }
-
-    // 選項變更事件
-    const options = document.querySelectorAll('input[type="radio"], input[type="checkbox"]');
-    options.forEach(option => {
-        option.addEventListener('change', () => {
-            saveCurrentAnswer();
-        });
-    });
 }
 
 // 儲存當前答案
@@ -618,6 +610,7 @@ function nextQuestion() {
 }
 
 // 更新導航按鈕狀態
+// 在最後一題時，"下一題"按鈕會變成"完成"按鈕
 function updateNavigationButtons() {
     const previousButton = document.querySelector('#previous');
     const nextButton = document.querySelector('#next');
@@ -627,6 +620,18 @@ function updateNavigationButtons() {
     }
     if (nextButton) {
         nextButton.textContent = currentQuestionIndex === questions.length - 1 ? '完成' : '下一題';
+        updateNextButtonState();
+    }
+}
+
+// 選項改變時更新按鈕狀態
+function updateNextButtonState() {
+    const currentQuestion = questions[currentQuestionIndex];
+    const hasAnswer = userAnswers[currentQuestion.id];
+    const nextButton = document.querySelector('#next');
+
+    if (nextButton) {
+        nextButton.disabled = !hasAnswer;
     }
 }
 
@@ -635,4 +640,291 @@ function finishQuiz() {
     saveCurrentAnswer();
     console.log('測驗完成！答案：', userAnswers);
     // 這裡可以加入計分邏輯
+}
+
+// 顯示結果頁面
+function showResult() {
+    const container = document.querySelector('.container');
+    const buttonGroup = document.querySelector('.questions-button-group');
+
+    // 計算測驗結果
+    const result = calculateResult();
+
+    // 清空容器
+    container.innerHTML = `
+        <div class="result-container">
+            <h2>測驗結果</h2>
+            <div class="result-content">
+                ${result.content}
+            </div>
+            <button onclick="restartQuiz()">重新測驗</button>
+        </div>
+    `;
+
+    // 隱藏導航按鈕
+    if (buttonGroup) {
+        buttonGroup.style.display = 'none';
+    }
+}
+// 先加入計算結果的函式
+function calculateResult() {
+
+    // 初始化六大系統的分數
+    let scores = {
+        強: 0,  // 強系
+        具: 0,  // 具系
+        放: 0,  // 放系
+        操: 0,  // 操系
+        變: 0,  // 變系
+        特: 0   // 特系
+    };
+
+    const systemFullNames = {
+        '強': '強化系',
+        '放': '放出系',
+        '變': '變化系',
+        '具': '具現化系',
+        '操': '操作系',
+        '特': '特質系'
+    };
+
+    // 輔助函式：為指定的系統加分
+    function addPoints(systems, points) {
+        systems.forEach(sys => scores[sys] += points);
+    }
+
+    // 輔助函式：為除了指定系統外的所有系統加分
+    function addPointsToOthers(excludeSystem, points) {
+        Object.keys(scores).forEach(sys => {
+            if (sys !== excludeSystem) {
+                scores[sys] += points;
+            }
+        });
+    }
+
+    // 處理每個答案並計算分數
+    Object.entries(userAnswers).forEach(([questionId, answer]) => {
+        const qId = parseInt(questionId);
+
+        // 處理多選題
+        if (Array.isArray(answer)) {
+            answer.forEach(option => {
+                switch (qId) {
+                    case 11:  // 第11題
+                        switch (option) {
+                            case 'A': addPoints(['具'], 30); break;
+                            case 'B': addPoints(['強'], 30); break;
+                            case 'C': addPoints(['操'], 30); break;
+                            case 'D': addPoints(['特'], 30); break;
+                            case 'E': addPoints(['放'], 30); break;
+                            case 'F': addPoints(['強'], 30); break;
+                            case 'G': addPoints(['放'], 30); break;
+                            case 'H': addPoints(['變'], 30); break;
+                            case 'I': addPoints(['特'], 30); break;
+                            case 'J': addPoints(['變'], 30); break;
+                            case 'K': addPoints(['具'], 30); break;
+                            case 'L': addPoints(['操'], 30); break;
+                        }
+                        break;
+                    case 12:  // 第12題
+                        switch (option) {
+                            case 'A': addPoints(['強'], 30); break;
+                            case 'B': addPoints(['放'], 30); break;
+                            case 'C': addPoints(['變'], 30); break;
+                            case 'D': addPoints(['具'], 30); break;
+                            case 'E': addPoints(['變'], 30); break;
+                            case 'F': addPoints(['操'], 30); break;
+                            case 'G': addPoints(['特'], 30); break;
+                            case 'H': addPoints(['具'], 30); break;
+                            case 'I': addPoints(['放'], 30); break;
+                            case 'J': addPoints(['特'], 30); break;
+                            case 'K': addPoints(['操'], 30); break;
+                            case 'L': addPoints(['強'], 30); break;
+                        }
+                        break;
+                    case 13:  // 第13題
+                        switch (option) {
+                            case 'A': addPoints(['放'], 30); break;
+                            case 'B': addPoints(['強'], 30); break;
+                            case 'C': addPoints(['具'], 30); break;
+                            case 'D': addPoints(['操'], 30); break;
+                            case 'E': addPoints(['變'], 30); break;
+                            case 'F': addPoints(['特'], 30); break;
+                        }
+                        break;
+                    case 14:  // 第14題
+                        switch (option) {
+                            case 'A': addPoints(['強'], 30); break;
+                            case 'B': addPoints(['具'], 30); break;
+                            case 'C': addPoints(['具'], 30); break;
+                            case 'D': addPoints(['放'], 30); break;
+                            case 'E': addPoints(['操'], 30); break;
+                            case 'F': addPoints(['強'], 30); break;
+                            case 'G': addPoints(['變'], 30); break;
+                            case 'H': addPoints(['變'], 30); break;
+                            case 'I': addPoints(['放'], 30); break;
+                            case 'J': addPoints(['特'], 30); break;
+                            case 'K': addPoints(['特'], 30); break;
+                            case 'L': addPoints(['操'], 30); break;
+                        }
+                        break;
+                }
+            });
+            return;
+        }
+
+        // 處理單選題
+        switch (qId) {
+            case 1:  // 第1題
+                if (answer === 'A') addPoints(['強', '放', '操'], 10);
+                if (answer === 'B') addPoints(['變', '具', '特'], 10);
+                break;
+            case 2:  // 第2題
+                switch (answer) {
+                    case 'A': addPoints(['強'], 30); break;
+                    case 'B': addPoints(['操'], 30); break;
+                    case 'C': addPoints(['放'], 30); break;
+                    case 'D': addPoints(['特'], 30); break;
+                    case 'E': addPoints(['具'], 30); break;
+                    case 'F': addPoints(['變'], 30); break;
+                }
+                break;
+            case 3:  // 第3題
+                switch (answer) {
+                    case 'A': addPoints(['具', '操'], 15); break;
+                    case 'B': addPoints(['放', '特'], 15); break;
+                    case 'C': addPoints(['強', '變'], 15); break;
+                }
+                break;
+            case 4:  // 第4題
+                switch (answer) {
+                    case 'A': addPoints(['放'], 30); break;
+                    case 'B': addPoints(['具'], 30); break;
+                    case 'C': addPoints(['強'], 30); break;
+                    case 'D': addPoints(['特'], 30); break;
+                    case 'E': addPoints(['變'], 30); break;
+                    case 'F': addPoints(['操'], 30); break;
+                }
+                break;
+            case 5:  // 第5題
+                switch (answer) {
+                    case 'A': addPoints(['具'], 30); break;
+                    case 'B': addPoints(['放'], 30); break;
+                    case 'C': addPoints(['特'], 30); break;
+                    case 'D': addPoints(['變'], 30); break;
+                    case 'E': addPoints(['操'], 30); break;
+                    case 'F': addPoints(['強'], 30); break;
+                }
+                break;
+            case 6:  // 第6題
+                switch (answer) {
+                    case 'A': addPoints(['放'], 30); break;
+                    case 'B': addPoints(['操'], 30); break;
+                    case 'C': addPoints(['具'], 30); break;
+                    case 'D': addPoints(['強'], 30); break;
+                    case 'E': addPoints(['變'], 30); break;
+                    case 'F': addPoints(['放'], 30); break;
+                    case 'G': addPoints(['特'], 30); break;
+                }
+                break;
+            case 7:  // 第7題
+                switch (answer) {
+                    case 'A': addPoints(['具', '操'], 15); break;
+                    case 'B': addPoints(['強', '放'], 15); break;
+                    case 'C': addPoints(['變', '特'], 15); break;
+                    case 'D': Object.keys(scores).forEach(sys => scores[sys] += 5); break;
+                }
+                break;
+            case 8:  // 第8題
+                switch (answer) {
+                    case 'A': addPoints(['具'], 35); break;
+                    case 'B': addPoints(['操'], 35); break;
+                    case 'C': addPoints(['放'], 30); break;
+                    case 'D': addPoints(['特'], 30); break;
+                    case 'E': addPoints(['強'], 30); break;
+                    case 'F': addPoints(['變'], 30); break;
+                }
+                break;
+            case 9:  // 第9題
+                switch (answer) {
+                    case 'A': addPoints(['強'], 30); break;
+                    case 'B': addPoints(['特'], 30); break;
+                    case 'C': addPoints(['變'], 30); break;
+                    case 'D': addPoints(['操'], 30); break;
+                    case 'E': addPoints(['具'], 30); break;
+                    case 'F': addPoints(['放'], 30); break;
+                }
+                break;
+            case 10:  // 第10題
+                switch (answer) {
+                    case 'A': addPoints(['變'], 30); break;
+                    case 'B': addPoints(['強'], 30); break;
+                    case 'C': addPoints(['放'], 30); break;
+                    case 'D': addPoints(['特'], 30); break;
+                    case 'E': addPoints(['具'], 30); break;
+                    case 'F': addPoints(['操'], 30); break;
+                }
+                break;
+            // 處理是非題
+            case 15:  // 第15題
+                if (answer === 'Y') addPoints(['變'], 30);
+                else addPointsToOthers('變', 6);
+                break;
+            case 16:  // 第16題
+                if (answer === 'Y') addPoints(['操'], 30);
+                else addPointsToOthers('操', 6);
+                break;
+            case 17:  // 第17題
+                if (answer === 'Y') addPoints(['具'], 30);
+                else addPointsToOthers('具', 6);
+                break;
+            case 18:  // 第18題
+                if (answer === 'Y') addPoints(['強'], 30);
+                else addPointsToOthers('強', 6);
+                break;
+            case 19:  // 第19題
+                if (answer === 'Y') addPoints(['特'], 30);
+                else addPointsToOthers('特', 6);
+                break;
+            case 20:  // 第20題
+                if (answer === 'Y') addPoints(['放'], 30);
+                else addPointsToOthers('放', 6);
+                break;
+        }
+    });
+
+
+    // 將系統按分數排序（由高到低）
+    const sortedSystems = Object.entries(scores)
+        .sort(([,a], [,b]) => b - a)
+        .map(([system, score]) => ({ system, score }));
+
+
+    // 生成結果內容的HTML
+    const resultContent = `
+        <h3>您的測驗結果：</h3>
+        <div class="scores-container">
+            ${sortedSystems.map(({system, score}) => `
+                <div class="score-item">
+                    <span class="system">${systemFullNames[system]}：</span>
+                    <span class="score">${score}分</span>
+                </div>
+            `).join('')}
+        </div>
+        <p>主系統：<strong>${systemFullNames[sortedSystems[0].system]} (${sortedSystems[0].score}分)</strong></p>
+        <p>副系統：<strong>${systemFullNames[sortedSystems[1].system]} (${sortedSystems[1].score}分)</strong></p>
+    `;
+    
+    return {
+        content: resultContent,  // HTML格式的結果內容
+        scores: scores,          // 原始分數資料
+        mainSystem: {
+            system: systemFullNames[sortedSystems[0].system],
+            score: sortedSystems[0].score
+        },
+        subSystem: {
+            system: systemFullNames[sortedSystems[1].system],
+            score: sortedSystems[1].score
+        }
+    };
 }
